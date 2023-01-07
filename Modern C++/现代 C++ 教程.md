@@ -474,3 +474,106 @@ auto add3(T x, U y){
 
 ## 2.4 控制流
 
+C++17 将 constexpr 这个关键字引入到 if 语句中，允许在代码中声明常量表达式的判断条件
+
+```cpp
+#include <iostream>
+
+template<typename T>
+auto print_type_info(const T& t) {
+    if constexpr (std::is_integral<T>::value) {
+        return t + 1;
+    } else {
+        return t + 0.001;
+    }
+}
+int main() {
+    std::cout << print_type_info(5) << std::endl;
+    std::cout << print_type_info(3.14) << std::endl;
+}
+```
+
+在编译时，实际代码就会表现为如下：
+
+```cpp
+int print_type_info(const int& t) {
+    return t + 1;
+}
+double print_type_info(const double& t) {
+    return t + 0.001;
+}
+int main() {
+    std::cout << print_type_info(5) << std::endl;
+    std::cout << print_type_info(3.14) << std::endl;
+}
+```
+
+### 区间 for 迭代
+
+C++11 引入了基于范围的迭代写法，我们拥有了能够写出像 Python 一样简洁的循环语句，我们可以进一步简化前面的例子
+
+```cpp
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+int main() {
+    std::vector<int> vec = {1, 2, 3, 4};
+    if (auto itr = std::find(vec.begin(), vec.end(), 3); itr != vec.end()) *itr = 4;
+    for (auto element : vec)
+        std::cout << element << std::endl; // read only
+    for (auto &element : vec) {
+        element += 1;                      // writeable
+    }
+    for (auto element : vec)
+        std::cout << element << std::endl; // read only
+}
+```
+
+## 2.5 模板
+
+模板的哲学在于将一切能够在编译期处理的问题丢到编译期进行处理，仅在运行时处理那些最核心的动态服务，进而大幅优化运行期的性能
+
+### 外部模板
+
+```cpp
+template class std::vector<bool>;          // 强行实例化
+extern template class std::vector<double>; // 不在该当前编译文件中实例化模板
+```
+
+### 尖括号 ">"
+
+在传统 C++ 的编译器中，>>一律被当做右移运算符来进行处理。但实际上我们很容易就写出了嵌套模板的代码：
+
+```cpp
+std::vector<std::vector<int>> matrix;
+```
+
+这在传统 C++ 编译器下是不能够被编译的，而 C++11 开始，连续的右尖括号将变得合法，并且能够顺利通过编译。甚至于像下面这种写法都能够通过编译：
+
+```cpp
+template<bool T>
+class MagicType {
+    bool magic = T;
+};
+
+// in main function:
+std::vector<MagicType<(1>2)>> magic; // 合法, 但不建议写出这样的代码
+```
+
+### 类型别名模板
+
+在了解类型别名模板之前，需要理解『模板』和『类型』之间的不同。仔细体会这句话：模板是用来产生类型的。在传统 C++ 中，typedef 可以为类型定义一个新的名称，但是却没有办法为模板定义一个新的名称。因为，模板不是类型。例如
+
+```cpp
+template<typename T, typename U>
+class MagicType {
+public:
+    T dark;
+    U magic;
+};
+
+// 不合法
+template<typename T>
+typedef MagicType<std::vector<T>, std::string> FakeDarkMagic;
+```
