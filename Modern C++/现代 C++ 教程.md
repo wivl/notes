@@ -261,3 +261,216 @@ if (const std::vector<int>::iterator itr = std::find(vec.begin(), vec.end(), 3);
 ```
 
 ### 初始化列表
+
+C++11 之前
+
+```cpp
+#include <iostream>
+#include <vector>
+
+class Foo {
+public:
+    int value_a;
+    int value_b;
+    Foo(int a, int b) : value_a(a), value_b(b) {}
+};
+
+int main() {
+    // before C++11
+    int arr[3] = {1, 2, 3};
+    Foo foo(1, 2);
+    std::vector<int> vec = {1, 2, 3, 4, 5};
+
+    std::cout << "arr[0]: " << arr[0] << std::endl;
+    std::cout << "foo:" << foo.value_a << ", " << foo.value_b << std::endl;
+    for (std::vector<int>::iterator it = vec.begin(); it != vec.end(); ++it) {
+        std::cout << *it << std::endl;
+    }
+    return 0;
+}
+```
+
+C++11 之后
+
+```cpp
+#include <initializer_list>
+#include <vector>
+#include <iostream>
+
+class MagicFoo {
+public:
+    std::vector<int> vec;
+    MagicFoo(std::initializer_list<int> list) {
+        for (std::initializer_list<int>::iterator it = list.begin();
+             it != list.end(); ++it)
+            vec.push_back(*it);
+    }
+};
+int main() {
+    // after C++11
+    MagicFoo magicFoo = {1, 2, 3, 4, 5};
+
+    std::cout << "magicFoo: ";
+    for (std::vector<int>::iterator it = magicFoo.vec.begin(); 
+        it != magicFoo.vec.end(); ++it) 
+        std::cout << *it << std::endl;
+}
+```
+
+这种构造函数被叫做初始化列表构造函数，具有这种构造函数的类型将在初始化时被特殊关照
+
+初始化列表除了用在对象构造上，还能将其作为普通函数的形参，例如:
+
+```cpp
+public:
+    void foo(std::initializer_list<int> list) {
+        for (std::initializer_list<int>::iterator it = list.begin();
+            it != list.end(); ++it) vec.push_back(*it);
+    }
+
+magicFoo.foo({6,7,8,9});
+```
+
+其次，C++11 还提供了统一的语法来初始化任意的对象，例如
+
+```cpp
+Foo foo2 {3, 4};
+```
+
+### 结构化绑定
+
+```cpp
+#include <iostream>
+#include <tuple>
+
+std::tuple<int, double, std::string> f() {
+    return std::make_tuple(1, 2.3, "456");
+}
+
+int main() {
+    auto [x, y, z] = f();
+    std::cout << x << ", " << y << ", " << z << std::endl;
+    return 0;
+}
+```
+
+## 2.3 类型推导
+
+### auto
+
+使用 auto 进行类型推导的一个最为常见而且显著的例子就是迭代器
+
+```cpp
+// 在 C++11 之前
+// 由于 cbegin() 将返回 vector<int>::const_iterator
+// 所以 it 也应该是 vector<int>::const_iterator 类型
+for(vector<int>::const_iterator it = vec.cbegin(); it != vec.cend(); ++it)
+```
+
+而有了 auto 之后
+
+```cpp
+for (auto it = magicFoo.vec.begin(); it != magicFoo.vec.end(); ++it) {
+    std::cout << *it << ", ";
+}
+```
+
+其他用法
+
+```cpp
+auto i = 5;              // i 被推导为 int
+auto arr = new auto(10); // arr 被推导为 int *
+```
+
+从 C++ 20 起，auto 甚至能用于函数传参
+
+```cpp
+int add(auto x, auto y) {
+    return x+y;
+}
+
+auto i = 5; // 被推导为 int
+auto j = 6; // 被推导为 int
+std::cout << add(i, j) << std::endl;
+```
+
+> auto 还不能推导数组类型
+
+```cpp
+auto auto_arr2[10] = {arr}; // 错误, 无法推导数组元素类型
+```
+
+```
+2.6.auto.cpp:30:19: error: 'auto_arr2' declared as array of 'auto'
+    auto auto_arr2[10] = {arr};
+```
+
+### decltype
+
+decltype 关键字是为了解决 auto 关键字只能对变量进行类型推导的缺陷而出现的。它的用法和 typeof 很相似
+
+```cpp
+decltype(表达式)
+```
+
+计算某个表达式的类型
+
+```cpp
+auto x = 1;
+auto y = 2;
+decltype(x+y) z;
+```
+
+下面这个例子就是判断上面的变量 x y z 是否是同一个类型
+
+```cpp
+if (std::is_same<decltype(x), int>::value)
+    std::cout << "type x == int" << std::endl;
+if (std::is_same<decltype(x), float>::value)
+    std::cout << "type x == float" << std::endl;
+if (std::is_same<decltype(x), decltype(z)>::value)
+    std::cout << "type z == type x" << std::endl;
+```
+
+其中，std::is_same<T, U> 用于判断 T 和 U 这两个类型是否相等。输出结果为：
+
+```cpp
+type x == int
+type z == type x
+```
+
+### 尾返回类型推导
+
+传统 C++ 并不能推导函数的返回类型
+
+```cpp
+template<typename R, typename T, typename U>
+R add(T x, U y) {
+    return x+y;
+}
+```
+
+C++11 尾返回类型利用 auto 关键字返回类型后置
+
+```cpp
+template<typename T, typename U>
+auto add2(T x, U y) -> decltype(x+y){
+    return x + y;
+}
+```
+
+C++14 开始是可以直接让普通函数具备返回值推导
+
+```cpp
+template<typename T, typename U>
+auto add3(T x, U y){
+    return x + y;
+}
+```
+
+### decltype(auto)
+
+> https://changkun.de/modern-cpp/zh-cn/02-usability/#decltype-auto
+
+## 2.4 控制流
+
