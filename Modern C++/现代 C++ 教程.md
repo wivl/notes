@@ -405,6 +405,27 @@ auto auto_arr2[10] = {arr}; // 错误, 无法推导数组元素类型
     auto auto_arr2[10] = {arr};
 ```
 
+
+> https://www.zhihu.com/question/325315863
+
+对于变量或者普通的返回值来说，常见有4种 <code>auto</code> 用法，还有一种 <code>const auto &&</code> 基本没有用，不去讨论。
+
+1. <code>auto</code>: 产生拷贝,可以修改
+2. <code>auto&</code>: 左值引用，接受左值，可以修改
+3. <code>const auto&</code>: const 引用,可以接受左右值，不可修改
+4. <code>auto&&</code>: 万能引用，可以接受左右值，const 引用时不能修改
+
+```cpp
+int a = 100;
+const int b = 100;
+auto a1 = 3; // a1为int
+auto a2 = a; // a2为int
+auto& a3 = a;// a3为int&,左引用
+auto&& a4 = a;// a4为int&,左引用
+auto&& a5 = 102;// a5为int&&,右引用
+auto&& a6 = b;// a6为const int
+```
+
 ### decltype
 
 decltype 关键字是为了解决 auto 关键字只能对变量进行类型推导的缺陷而出现的。它的用法和 typeof 很相似
@@ -576,4 +597,334 @@ public:
 // 不合法
 template<typename T>
 typedef MagicType<std::vector<T>, std::string> FakeDarkMagic;
+```
+
+C++11 使用 using 引入下面这种形式写法，并且同时支持对传统 typedef 相同的功效：
+
+```cpp
+typedef int (*process)(void *);
+using NewProcess = int(*)(void *);
+template<typename T>
+using TrueDarkMagic = MagicType<std::vector<T>, std::string>;
+
+int main() {
+    TrueDarkMagic<bool> you;
+}
+```
+
+### 变长参数模板
+
+C++11 加入了新的表示方法， 允许任意个数、任意类别的模板参数，同时也不需要在定义时将参数的个数固定
+
+```cpp
+template<typename... Ts> class Magic;
+```
+
+模板类 Magic 的对象，能够接受不受限制个数的 typename 作为模板的形式参数，例如下面的定义
+
+```cpp
+class Magic<int,
+            std::vector<int>,
+            std::map<std::string,
+            std::vector<int>>> darkMagic;
+
+class Magic<> nothing;  // 参数个数为 0 模板
+```
+
+如果不希望产生的模板参数个数为 0，可以手动的定义至少一个模板参数
+
+```cpp
+template<typename Require, typename... Args> class Magic;
+```
+
+变长参数模板也能被直接调整到到模板函数上
+
+```cpp
+template<typename... Ts>
+void magic(Ts... args) {
+    std::cout << sizeof...(args) << std::endl;  // 使用 sizeof 计算参数个数
+}
+```
+
+我们可以传递任意个参数给 magic 函数
+
+```cpp
+magic(); // 输出0
+magic(1); // 输出1
+magic(1, ""); // 输出2
+```
+
+其次，对参数进行解包，到目前为止还没有一种简单的方法能够处理参数包，但有两种经典的处理手法
+
+1. 递归模板函数
+
+递归是非常容易想到的一种手段，也是最经典的处理方法。这种方法不断递归地向函数传递模板参数，进而达到递归遍历所有模板参数的目的
+
+```cpp
+#include <iostream>
+template<typename T0>
+void printf1(T0 value) {
+    std::cout << value << std::endl;
+}
+template<typename T, typename... Ts>
+void printf1(T value, Ts... args) {
+    std::cout << value << std::endl;
+    printf1(args...);
+}
+int main() {
+    printf1(1, 2, "123", 1.1);
+    return 0;
+}
+```
+
+2. 变参模板展开
+
+在 C++17 中增加了变参模板展开的支持，于是你可以在一个函数中完成 printf 的编写
+
+```cpp
+template<typename T0, typename... T>
+void printf2(T0 t0, T... t) {
+    std::cout << t0 << std::endl;
+    if constexpr (sizeof...(t) > 0) printf2(t...);
+}
+```
+
+3. 初始化列表展开
+
+```cpp
+template<typename T0, typename... T>
+void printf2(T0 t0, T... t) {
+    std::cout << t0 << std::endl;
+    if constexpr (sizeof...(t) > 0) printf2(t...);
+}
+```
+
+### 折叠表达式
+
+C++ 17 中将变长参数这种特性进一步带给了表达式
+
+```cpp
+#include <iostream>
+template<typename ... T>
+auto sum(T ... t) {
+    return (t + ...);
+}
+int main() {
+    std::cout << sum(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) << std::endl;
+}
+```
+
+### 非类型模板参数推导
+
+还有一种常见模板参数形式可以让不同字面量成为模板参数，即非类型模板参数
+
+```cpp
+template <typename T, int BufSize>
+class buffer_t {
+public:
+    T& alloc();
+    void free(T& item);
+private:
+    T data[BufSize];
+}
+
+buffer_t<int, 100> buf; // 100 作为模板参数
+```
+
+在这种模板参数形式下，我们可以将 100 作为模板的参数进行传递
+
+C++17 允许 auto 关键字让编译器辅助完成具体类型的推导
+
+```cpp
+template <auto value> void foo() {
+    std::cout << value << std::endl;
+    return;
+}
+
+int main() {
+    foo<10>();  // value 被推导为 int 类型
+}
+```
+
+## 2.6 面向对象
+
+### 委托构造
+
+C++11 引入了委托构造的概念，这使得构造函数可以在同一个类中一个构造函数调用另一个构造函数，从而达到简化代码的目的
+
+```cpp
+#include <iostream>
+class Base {
+public:
+    int value1;
+    int value2;
+    Base() {
+        value1 = 1;
+    }
+    Base(int value) : Base() { // 委托 Base() 构造函数
+        value2 = value;
+    }
+};
+
+int main() {
+    Base b(2);
+    std::cout << b.value1 << std::endl;
+    std::cout << b.value2 << std::endl;
+}
+```
+
+### 继承构造
+
+在传统 C++ 中，构造函数如果需要继承是需要将参数一一传递的，这将导致效率低下。C++11 利用关键字 using 引入了继承构造函数的概念
+
+```cpp
+#include <iostream>
+class Base {
+public:
+    int value1;
+    int value2;
+    Base() {
+        value1 = 1;
+    }
+    Base(int value) : Base() { // 委托 Base() 构造函数
+        value2 = value;
+    }
+};
+class Subclass : public Base {
+public:
+    using Base::Base; // 继承构造
+};
+int main() {
+    Subclass s(3);
+    std::cout << s.value1 << std::endl;
+    std::cout << s.value2 << std::endl;
+}
+```
+
+### 显式虚函数重载
+
+在传统 C++ 中，经常容易发生意外重载虚函数的事情。例如
+
+```cpp
+struct Base {
+    virtual void foo();
+};
+struct SubClass: Base {
+    void foo();
+};
+```
+
+<code>SubClass::foo</code> 可能并不是程序员尝试重载虚函数，只是恰好加入了一个具有相同名字的函数。另一个可能的情形是，当基类的虚函数被删除后，子类拥有旧的函数就不再重载该虚拟函数并摇身一变成为了一个普通的类方法，这将造成灾难性的后果。
+
+C++11 引入了 <code>override</code> 和 <code>final</code> 这两个关键字来防止上述情形的发生。
+
+1. override
+
+当重载虚函数时，引入 override 关键字将显式的告知编译器进行重载，编译器将检查基函数是否存在这样的虚函数，否则将无法通过编译
+
+```cpp
+struct Base {
+    virtual void foo(int);
+};
+struct SubClass: Base {
+    virtual void foo(int) override; // 合法
+    virtual void foo(float) override; // 非法, 父类没有此虚函数
+};
+```
+
+2. final
+
+final 则是为了防止类被继续继承以及终止虚函数继续重载引入的
+
+```cpp
+struct Base {
+    virtual void foo() final;
+};
+struct SubClass1 final: Base {
+}; // 合法
+
+struct SubClass2 : SubClass1 {
+}; // 非法, SubClass1 已 final
+
+struct SubClass3: Base {
+    void foo(); // 非法, foo 已 final
+};
+```
+
+### 显式禁用默认函数
+
+在传统 C++ 中，如果程序员没有提供，编译器会默认为对象生成默认构造函数、 复制构造、赋值算符以及析构函数。 另外，C++ 也为所有类定义了诸如 new delete 这样的运算符。 当程序员有需要时，可以重载这部分函数。
+
+这就引发了一些需求：无法精确控制默认函数的生成行为。 例如禁止类的拷贝时，必须将复制构造函数与赋值算符声明为 private。 尝试使用这些未定义的函数将导致编译或链接错误，则是一种非常不优雅的方式。
+
+并且，编译器产生的默认构造函数与用户定义的构造函数无法同时存在。 若用户定义了任何构造函数，编译器将不再生成默认构造函数， 但有时候我们却希望同时拥有这两种构造函数，这就造成了尴尬。
+
+C++11 提供了上述需求的解决方案，允许显式的声明采用或拒绝编译器自带的函数。 例如
+
+```cpp
+class Magic {
+    public:
+    Magic() = default; // 显式声明使用编译器生成的构造
+    Magic& operator=(const Magic&) = delete; // 显式声明拒绝编译器生成构造
+    Magic(int magic_number);
+}
+```
+
+### 强类型枚举
+
+在传统 C++中，枚举类型并非类型安全，枚举类型会被视作整数，则会让两种完全不同的枚举类型可以进行直接的比较（虽然编译器给出了检查，但并非所有），甚至同一个命名空间中的不同枚举类型的枚举值名字不能相同，这通常不是我们希望看到的结果。
+
+C++11 引入了枚举类（enumeration class），并使用 enum class 的语法进行声明
+
+```cpp
+enum class new_enum : unsigned int {
+    value1,
+    value2,
+    value3 = 100,
+    value4 = 100
+};
+```
+
+这样定义的枚举实现了类型安全，首先他不能够被隐式的转换为整数，同时也不能够将其与整数数字进行比较， 更不可能对不同的枚举类型的枚举值进行比较。但相同枚举值之间如果指定的值相同，那么可以进行比较
+
+```cpp
+if (new_enum::value3 == new_enum::value4) {
+    // 会输出
+    std::cout << "new_enum::value3 == new_enum::value4" << std::endl;
+}
+```
+
+在这个语法中，枚举类型后面使用了冒号及类型关键字来指定枚举中枚举值的类型，这使得我们能够为枚举赋值（未指定时将默认使用 int）
+
+而我们希望获得枚举值的值时，将必须显式的进行类型转换，不过我们可以通过重载 << 这个算符来进行输出，可以收藏下面这个代码段
+
+```cpp
+#include <iostream>
+template<typename T>
+std::ostream& operator<<(
+    typename std::enable_if<std::is_enum<T>::value,
+        std::ostream>::type& stream, const T& e)
+{
+    return stream << static_cast<typename std::underlying_type<T>::type>(e);
+}
+```
+
+这时，下面的代码将能够被编译
+
+```cpp
+std::cout << new_enum::value3 << std::endl
+```
+
+# 语言运行期的变化
+
+## 3.1 Lambda 表达式
+
+Lambda 表达式，实际上就是提供了一个类似匿名函数的特性， 而匿名函数则是在需要一个函数，但是又不想费力去命名一个函数的情况下去使用的
+
+### 基础
+
+```cpp
+[捕获列表](参数列表) mutable(可选) 异常属性 -> 返回类型 {
+// 函数体
+}
 ```
