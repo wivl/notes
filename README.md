@@ -10,4 +10,5 @@
 ## to learn list
 
 * 计算机图形学
+* [ssloy/tinyrenderer](https://github.com/ssloy/tinyrenderer)
 * *Command-Line Rust*
