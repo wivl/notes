@@ -6,9 +6,10 @@
 
 * [SDL](./SDL/)
 * [Modern C++](./Modern%20C%2B%2B/)
+* [ssloy/tinyrenderer](./renderer/), [tutorial](https://github.com/ssloy/tinyrenderer)
 
 ## to learn list
 
 * 计算机图形学
-* [ssloy/tinyrenderer](https://github.com/ssloy/tinyrenderer)
 * *Command-Line Rust*
+* Golang web dev
