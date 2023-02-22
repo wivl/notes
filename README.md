@@ -11,5 +11,6 @@
 ## to learn list
 
 * 计算机图形学
+* [Rust 语言圣经](https://course.rs)
 * *Command-Line Rust*
 * Golang web dev
